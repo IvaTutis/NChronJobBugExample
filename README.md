@@ -1,4 +1,6 @@
-## origi Bug description
+# Small project to demonstrate the bug
+
+## Bug description
 The Job will be triggered at the expected time if it is added to the runtime registry at the start of the application. 
 When the job is added later to the registry using the same service, it will appear in the registry (breakpoint view) as it should, but will not be triggered at the expected time. 
 
