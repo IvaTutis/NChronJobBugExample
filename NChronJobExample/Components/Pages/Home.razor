@@ -1,0 +1,177 @@
+﻿@page "/"
+@using CronExpressionDescriptor
+@using NChronJobExample.Services
+@using NCronJob
+@inject IJobRegistrationService JobRegistry
+
+<div class="debug-banner">
+    
+    <div class="debug-header">
+        <span class="debug-title">🐛 NCronJob Runtime Debug</span>
+        <span class="debug-time">@DateTime.Now.ToString("HH:mm:ss")</span>
+    </div>
+
+    <div class="debug-content">
+        <div class="debug-warning">⚠️ Issue: Runtime Job Registration </div>
+        <br/>
+        • Jobs added immediately after startup to RuntimeRegistry: @_repository.RuntimeStartupJobList.Count
+        • Jobs added after to RuntimeRegistry: @_repository.RuntimeJobList.Count
+        • Total latest executions tracked: @_repository.LastJobExecutionDictionary.Count
+        <br/>
+        <div>
+            <strong>Issue:</strong> Jobs registered into runtime registry after startup may not trigger at scheduled times. 
+            If added immediately into RuntimeRegistry after startup via eg. HostedService, they <strong>will</strong> work. (for us, this is TaskSyncService) 
+            Jobs added via the interface (app) later <strong>will not</strong> work. 
+            (but they <strong>do</strong> end up in the registry, and should be therefore executed onwards) 
+        </div>
+    </div>
+
+    <div style="text-align: center">
+        <button class="btn btn-primary" style="background-color: #0c4128"
+                @onclick="HandleRefreshClick"
+                disabled="@isRefreshingPage">
+            <i class="fas fa-sync-alt mr-2"></i>
+            @if (isRefreshingPage)
+            {
+                <span>Refreshing...</span>
+            }
+            else
+            {
+                <span>Refresh last executed</span>
+            }
+        </button>
+    </div>
+</div>
+
+<br/>
+<br/>
+
+<h1>Registered Jobs</h1>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Job Name</th>
+        <th>Cron Expression</th>
+        <th>Description</th>
+        <td>TimeZone</td>
+        <td>LastExecuted</td>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var job in registeredJobs)
+    {
+        <tr>
+            <td>@job.JobName</td>
+            <td>@job.CronExpression</td>
+            <td>@ExpressionDescriptor.GetDescription(job.CronExpression);</td>
+            <td>@job.TimeZone</td>
+            <td class="debug-banner debug-content">@GetLastExecutionDate(job.JobName)</td>
+            <td>
+                <button class="btn btn-danger" @onclick="@(() => DeleteJob(job.JobName))">Delete</button>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<br/>
+<br/>
+
+@code {
+    [Inject] public required MockRepository _repository { get; set; }
+    
+    private List<RecurringJobSchedule> registeredJobs = new List<RecurringJobSchedule>();
+    private Dictionary<Guid, DateTime> _jobExecutionsList = new Dictionary<Guid, DateTime>();
+    private bool isRefreshingPage = false;
+    
+    private async Task HandleRefreshClick()
+    {
+        if (!isRefreshingPage)
+        {
+            isRefreshingPage = true;
+
+            await RefreshJobs();
+
+            await Task.Delay(500); // Minimum animation time
+            isRefreshingPage = false;
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshJobs();
+    }
+
+    private Task RefreshJobs()
+    {
+        registeredJobs = JobRegistry.GetAllRecurringJobs();
+        _jobExecutionsList = _repository.LastJobExecutionDictionary;
+        return Task.CompletedTask;
+    }
+    private async Task DeleteJob(string jobName)
+    {
+        var jobId = Guid.Parse(jobName);
+        await JobRegistry.DeleteJob(jobId);
+        await RefreshJobs();
+    }
+
+    private string GetLastExecutionDate(string jobName)
+    {
+        if (Guid.TryParse(jobName, out var jobGuid))
+        {
+            return _jobExecutionsList.TryGetValue(jobGuid, out var time) ? time.ToString() : "No last execution time recorded";
+        }
+        else
+        {
+            return "Formatting error: Cannot convert jobName to Guid";
+        }
+    }
+
+}
+
+<style>
+    .debug-banner {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 90%;
+        width: auto;
+    }
+
+    .debug-content {
+        text-align: left;
+        font-family: monospace;
+        white-space: pre-wrap;
+        font-size: 0.9rem;
+    }
+
+    .debug-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #ffeeba;
+    }
+
+    .debug-title {
+        font-weight: bold;
+        color: #856404;
+        margin: 0;
+    }
+
+    .debug-time {
+        font-size: 0.8rem;
+        color: #856404;
+    }
+
+    .debug-warning {
+        font-weight: bold;
+        color: #dc3545;
+    }
+</style>
