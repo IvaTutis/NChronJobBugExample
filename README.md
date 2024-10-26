@@ -4,8 +4,6 @@
 The Job will be triggered at the expected time if it is added to the runtime registry at the start of the application. 
 When the job is added later to the registry using the same service, it will appear in the registry (breakpoint view) as it should, but will not be triggered at the expected time. 
 
-The instant job registration and execution works fine. 
-
 The jobs below are added and deleted from the registries in the same manner as in the documentation and other issues.  (referencing [issue](https://github.com/NCronJob-Dev/NCronJob/issues/83) and [docs](https://docs.ncronjob.dev/advanced/dynamic-job-control))
 
 ## Context
